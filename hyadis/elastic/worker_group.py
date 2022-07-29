@@ -1,5 +1,6 @@
 import socket
 import time
+import math
 from dataclasses import dataclass
 from enum import Enum
 from functools import partial
@@ -46,6 +47,7 @@ class Worker:
         self.named_values = dict()
         self.state = State()
         self.epoch = 0
+        self.batch_size = 1
         self.dataloader = None
         self.data_iter = None
         self.init_fn = None
@@ -83,6 +85,10 @@ class Worker:
     def set_epoch(self, epoch: int):
         self.epoch = epoch
         self.dataloader.set_epoch(self.epoch)
+
+    def set_batch_size(self, batch_size: int):
+        self.batch_size = batch_size
+        self.dataloader.batch_size = self.batch_size
 
     def register_initialization(self, fn):
         if self.init_fn is None and fn is not None:
@@ -233,6 +239,7 @@ class WorkerGroupManager:
         num_cpus_per_worker: int = 1,
         use_gpu: bool = False,
         wait_for_resource_interval: float = 0.1,
+        batch_size: int = 1,
     ) -> None:
 
         self.num_workers = num_workers
@@ -252,6 +259,8 @@ class WorkerGroupManager:
             num_gpus=self.num_gpus_per_worker,
         )(Worker)
         self.resource_update_lock = Lock()
+        self.batch_size = batch_size
+        self.global_batch_size = batch_size * self.num_workers  # maximum global batch size
 
         with self.resource_update_lock:
             self._add_new_workers(self.num_workers)
@@ -299,7 +308,10 @@ class WorkerGroupManager:
         self._synchronize()
         get_logger().info(f"{num_workers} worker(s) created.")
 
+        self.global_batch_size = self.num_workers * self.batch_size
+
     def _release_workers(self, worker_list: List[int]):
+        org_length = len(self.workers)
         new_workers = list()
         new_worker_metadata = list()
         for i in range(len(self.workers)):
@@ -316,6 +328,18 @@ class WorkerGroupManager:
         self.workers = new_workers
         self.worker_metadata = new_worker_metadata
         self.num_workers = len(self.workers)
+
+        if org_length % len(worker_list) != 0:
+            accumulation_iter = math.ceil(org_length / len(worker_list))
+            batch_size_sharded = self.global_batch_size / accumulation_iter
+            local_batch_size = batch_size_sharded / len(self.workers)
+            local_additional_bs = batch_size_sharded % len(self.workers)
+            for w in self.workers:
+                if local_additional_bs > 0:
+                    w.set_batch_size(local_batch_size + 1)
+                    local_additional_bs -= 1
+                else:
+                    w.set_batch_size(local_batch_size)
 
         self._synchronize()
 

@@ -18,6 +18,7 @@ class ElasticRunner:
         num_cpus_per_worker: int = 1,
         use_gpu: bool = False,
         autoscale: bool = True,
+        batch_size: int = 1,
     ):
         self.job_id = global_worker.current_job_id
         get_logger().info(f"Starting runner ({self.job_id}) ...")
@@ -27,6 +28,7 @@ class ElasticRunner:
             num_cpus_per_worker=num_cpus_per_worker,
             use_gpu=use_gpu,
             autoscale=autoscale,
+            batch_size=batch_size,
         )
 
         ray.get(self.job_manager.start.remote())
@@ -43,8 +45,8 @@ class ElasticRunner:
     def size(self):
         return ray.get(self.job_manager.size.remote())
 
-    def resize(self, num_workers: int):
-        ray.get(self.job_manager.resize.remote(num_workers))
+    def resize(self, num_workers: int, optimizer):
+        ray.get(self.job_manager.resize.remote(num_workers, optimizer))
 
     def shutdown(self):
         ray.get(self.job_manager.shutdown.remote())

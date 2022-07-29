@@ -5,6 +5,7 @@ import torch
 import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel
 from torch.utils.data import DataLoader, DistributedSampler
+import torch.optim as optim
 
 
 class ElasticDistributedSampler(DistributedSampler):
@@ -148,3 +149,33 @@ class ElasticDistributedDataParallel(torch.nn.Module):
 
     def forward(self, *args, **kwargs):
         return self.module(*args, **kwargs)
+
+
+class ElasticOptimizer:
+    """Set the accumulation duration according to the current number of worker versus the max number of worker.
+    Ceil is adopted currently if the change is not integer multiple"""
+    def __init__(
+            self,
+            optimizer: optim.optimizer,
+                 ):
+        self.max_workers = 1
+        self.optimizer = optimizer
+        self.accumulation_iter = 1
+        self.accumulated_iter = 1
+
+    def accumulate(self, new_num_workers):
+        if new_num_workers > self.max_workers:
+            self.max_workers = new_num_workers
+        else:
+            self.accumulation_iter = math.ceil(self.max_workers / new_num_workers)
+
+    def step(self):
+        if self.accumulated_iter == self.accumulation_iter:
+            self.optimizer.step()
+            self.accumulated_iter = 1
+        else:
+            self.accumulated_iter += 1
+
+    def set_workers(self, num_workers):
+        """calls at the initialization stage"""
+        self.max_workers = num_workers

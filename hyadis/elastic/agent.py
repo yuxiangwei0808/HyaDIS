@@ -47,7 +47,7 @@ class ScalingAgent:
         self.thread.start()
         get_logger().info("Scaling agent started.")
 
-    def resize(self, num_workers: int):
+    def resize(self, num_workers: int, optimizer):
         get_logger().info(f"Resizing workers: {self.worker_group.num_workers} --> {num_workers}")
         available_resources = dict()
         # TODO: we should fetch available resources of the current task from scheduler
@@ -72,6 +72,8 @@ class ScalingAgent:
 
         num_new_workers = num_workers - total_workers
         self.worker_group.update_workers(num_new_workers, workers_to_release)
+
+        optimizer.accumulate(num_workers)
 
     def shutdown(self):
         self.keep_running = False
