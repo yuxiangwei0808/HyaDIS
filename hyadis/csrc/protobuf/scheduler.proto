@@ -1,0 +1,40 @@
+syntax = "proto3";
+option cc_enable_arenas = true;
+package ray.rpc.scheduling;
+
+import "src/ray/protobuf/node_manager.proto";
+
+message HelloRequest {}
+
+message HelloReply {
+  string message = 1;
+}
+
+message QueueAndScheduleTaskRequest {
+  RequestWorkerLeaseRequest request = 1;
+}
+
+message QueueAndScheduleTaskReply {
+  RequestWorkerLeaseReply reply = 1;
+}
+
+message ScheduleAndDispatchTasksRequest {}
+
+message ScheduleAndDispatchTasksReply {}
+
+message CancelTaskRequest {
+  CancelWorkerLeaseRequest request = 1;
+}
+
+message CancelTaskReply {
+  CancelWorkerLeaseReply reply = 1;
+}
+
+service SchedulerService {
+  rpc Hello(HelloRequest) returns (HelloReply);
+  rpc QueueAndScheduleTask(QueueAndScheduleTaskRequest)
+      returns (QueueAndScheduleTaskReply);
+  rpc ScheduleAndDispatchTasks(ScheduleAndDispatchTasksRequest)
+      returns (ScheduleAndDispatchTasksReply);
+  rpc CancelTask(CancelTaskRequest) returns (CancelTaskReply);
+}

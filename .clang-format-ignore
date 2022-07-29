@@ -1,0 +1,3 @@
+# Thirdparty codes
+hyadis/csrc/thirdparty/**/*.h
+hyadis/csrc/thirdparty/**/*.cc
